@@ -217,3 +217,7 @@ void NeuralNetwork::copyWeights(NeuralNetwork *nn) {
 		}
 	}
 }
+
+double *NeuralNetwork::getInputError() {
+	return error[0];
+}

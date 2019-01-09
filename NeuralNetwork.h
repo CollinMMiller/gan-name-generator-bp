@@ -16,6 +16,7 @@ public:
 	double *doLearningTick(double *inputs, double *outputs);
 	double *forwardPropagate(double *inputs);
 	double *backPropagate(double *correct);
+	double *getInputError();
 	void saveWeightsToFile(std::string fileLocation);
 	void loadWeightsFromFile(std::string fileLocation);
 	void mutateWeights(double stdDev);
