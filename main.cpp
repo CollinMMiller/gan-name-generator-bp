@@ -27,7 +27,9 @@ int main() {
 		realNames.push_back(name);
 
 	NeuralNetwork generator(numOfLayers,genNodeMap,.1);
+	generator.loadWeightsFromFile("/home/rneptune/Desktop/Gweights.txt");
 	NeuralNetwork discriminator(numOfLayers,disNodeMap,.1);
+	discriminator.loadWeightsFromFile("/home/rneptune/Desktop/Dweights.txt");
 
 	std::random_device rd;
 	std::mt19937 gen(rd());
@@ -73,6 +75,8 @@ int main() {
 
 		if(trial % 1000 == 0) {
 			std::cout << trial << ": " << getWordFromOutput(rawOutputs) << std::endl;
+			generator.saveWeightsToFile("/home/rneptune/Desktop/Gweights.txt");
+			discriminator.saveWeightsToFile("/home/rneptune/Desktop/Dweights.txt");
 		}
 	}
 }
