@@ -140,7 +140,7 @@ double *NeuralNetwork::backPropagate(double *correct) {
 		}
 	}
 
-	LEARNINGRATE = (4*LEARNINGRATE + fabs(error[TOTALLAYERS-1][0])*10)/5;
+//	LEARNINGRATE = (4*LEARNINGRATE + fabs(error[TOTALLAYERS-1][0])*10)/5;
 
 	return error[TOTALLAYERS-1];
 }
