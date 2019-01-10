@@ -35,10 +35,12 @@ int main() {
 	std::mt19937 gen(rd());
 	std::uniform_real_distribution<double> dist(-1, 1);
 
+	int discriminatorRight = 0;
+
 	double inputs[randomNodes];
 	double realInput[27 * maxLetters];
 	double genOutputs[27 * maxLetters];
-	double disOutputs[2];
+	double *disOutputs;
 	double expectedDisOutput[2];
 
 	//Infinite Trials
@@ -57,12 +59,17 @@ int main() {
 		}
 		minMaxOutput(genOutputs);
 
-		discriminator.doLearningTick(genOutputs,expectedDisOutput);
+		disOutputs = discriminator.forwardPropagate(genOutputs);
+		if(disOutputs[0] > disOutputs[1])
+			discriminatorRight++;
+		discriminator.backPropagate(expectedDisOutput);
 
 		double *inputError = discriminator.getInputError();
 		for(int i=0;i<27 * maxLetters;i++) {
 			inputError[i] *= -1;
 		}
+		minMaxOutput(inputError);
+
 		generator.backPropagate(inputError);
 
 		expectedDisOutput[0] = 0;
@@ -74,9 +81,10 @@ int main() {
 
 
 		if(trial % 1000 == 0) {
-			std::cout << trial << ": " << getWordFromOutput(rawOutputs) << std::endl;
+			std::cout << trial << ": " << getWordFromOutput(rawOutputs) << " | " <<discriminatorRight << std::endl;
 			generator.saveWeightsToFile("/home/rneptune/Desktop/Gweights.txt");
 			discriminator.saveWeightsToFile("/home/rneptune/Desktop/Dweights.txt");
+			discriminatorRight = 0;
 		}
 	}
 }
@@ -102,6 +110,7 @@ void minMaxOutput(double *input) {
 		for(int j=0;j<27;j++) {
 			if(input[27*i + j] > bestValue) {
 				bestIndex = j;
+				bestValue = input[27*i + j];
 			}
 			input[27*i+j] = 0;
 		}
