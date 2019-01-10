@@ -9,10 +9,11 @@ void minMaxOutput(double *);
 std::string getWordFromOutput(double *);
 
 //NOTE: 0 is fake; 1 is real
-int genNodeMap[] = {0,100,0};
+int genNodeMap[] = {0,1000,0};
 int disNodeMap[] = {0,100,2};
-int randomNodes = 10;
+int randomNodes = 20;
 int maxLetters = 16;
+int trialsPerPrint = 1000;
 
 int main() {
 	int numOfLayers = sizeof(genNodeMap) / sizeof(int);
@@ -21,15 +22,15 @@ int main() {
 	disNodeMap[0] = 27 * maxLetters;
 
 	std::vector<std::string> realNames;
-	std::ifstream nameFile("/home/rneptune/Desktop/boynames.txt");
+	std::ifstream nameFile("/home/rneptune/Desktop/pokemon.txt");
 	std::string name;
 	while (nameFile >> name)
 		realNames.push_back(name);
 
 	NeuralNetwork generator(numOfLayers,genNodeMap,.1);
-	generator.loadWeightsFromFile("/home/rneptune/Desktop/Gweights.txt");
+//	generator.loadWeightsFromFile("/home/rneptune/Desktop/Gweights.txt");
 	NeuralNetwork discriminator(numOfLayers,disNodeMap,.1);
-	discriminator.loadWeightsFromFile("/home/rneptune/Desktop/Dweights.txt");
+//	discriminator.loadWeightsFromFile("/home/rneptune/Desktop/Dweights.txt");
 
 	std::random_device rd;
 	std::mt19937 gen(rd());
@@ -80,8 +81,8 @@ int main() {
 		discriminator.doLearningTick(realInput, expectedDisOutput);
 
 
-		if(trial % 1000 == 0) {
-			std::cout << trial << ": " << getWordFromOutput(rawOutputs) << " | " <<discriminatorRight << std::endl;
+		if(trial % trialsPerPrint == 0) {
+			std::cout << trial << ": " << getWordFromOutput(rawOutputs) << " | " << "Discriminator Wins: " << 100 * ((double)discriminatorRight/(double)trialsPerPrint) << "%" << std::endl;
 			generator.saveWeightsToFile("/home/rneptune/Desktop/Gweights.txt");
 			discriminator.saveWeightsToFile("/home/rneptune/Desktop/Dweights.txt");
 			discriminatorRight = 0;
