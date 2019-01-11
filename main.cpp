@@ -16,15 +16,20 @@ std::string getWordFromOutput(double *);
  * First and last elements will be overwritten
  * example: ...NodeMap[] = {0, 100, 600, 350, 0};
  */
-int genNodeMap[] = {0,1000,1000,0};	//For the generator
-int disNodeMap[] = {0,500,500,0};		//For the discriminator
+int genNodeMap[] = {0,500,500,0};	//For the generator
+int disNodeMap[] = {0,200,200,0};	//For the discriminator
 bool continueNameAfterSpace = false;	//Allows letters following a ' '(Space) in generated names
 
 int randomNodes = 20;			//Number of random input nodes for generator
 int maxLetters = 16;			//Maximum letters in name
 int trialsPerPrint = 1000;		//Number of cycles before printing an output
 
-int main() {
+int main(int argc, char **argv) {
+
+	if(argc < 2) {
+		std::cout << "Please include path to training file" << std::endl;
+		return 0;
+	}
 
 	//Sets values for genNodeMap
 	int genNumberOfLayers = sizeof(genNodeMap) / sizeof(int);
@@ -38,24 +43,24 @@ int main() {
 
 	//Loads training names into realNames
 	std::vector<std::string> realNames;
-	std::ifstream nameFile("/home/rneptune/Desktop/pokemon.txt");
+	std::ifstream nameFile(argv[1]);
 	std::string name;
 	while (nameFile >> name)
 		realNames.push_back(name);
 
 
 	//Creates the generator and discriminator with .1 as the learning rate
-	NeuralNetwork generator(genNumberOfLayers,genNodeMap,.1);
-	NeuralNetwork discriminator(disNumberOfLayers,disNodeMap,.1);
+	NeuralNetwork generator(genNumberOfLayers,genNodeMap,.1, false);
+	NeuralNetwork discriminator(disNumberOfLayers,disNodeMap,.1, true);
 
 	//Loads saved weights from file
 //	generator.loadWeightsFromFile("Gweights.txt");
 //	discriminator.loadWeightsFromFile("Dweights.txt");
 
-	//Creates random double generator between -10,10
+	//Creates random double generator between 1,1
 	std::random_device rd;
 	std::mt19937 gen(rd());
-	std::uniform_real_distribution<double> dist(-10, 10);
+	std::uniform_real_distribution<double> dist(1,1);
 
 	int discriminatorRight = 0;	//Defines and initializes number of times the discriminator is right
 
@@ -68,9 +73,7 @@ int main() {
 	double *inputError;
 	double expectedDisOutput[2];
 
-
-	for(int trial=1;trial>-1;trial++) {
-
+	for(int trial=0;trial>-1;trial++) {
 		/*
 		 * Generated Name
 		 */
