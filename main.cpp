@@ -2,90 +2,136 @@
 #include <vector>
 #include <fstream>
 #include <random>
+#include <unistd.h>
 #include "NeuralNetwork.h"
 
 void setInputfromString(double *, std::string);
 void minMaxOutput(double *);
 std::string getWordFromOutput(double *);
 
-//NOTE: 0 is fake; 1 is real
-int genNodeMap[] = {0,1000,0};
-int disNodeMap[] = {0,100,2};
-int randomNodes = 20;
-int maxLetters = 16;
-int trialsPerPrint = 1000;
+/*
+ * These arrays define the layout of the neural networks
+ * Each element is a layer, the value defines the number of nodes in that layer
+ * Adding more elements creates more layers
+ * First and last elements will be overwritten
+ * example: ...NodeMap[] = {0, 100, 600, 350, 0};
+ */
+int genNodeMap[] = {0,1000,1000,0};	//For the generator
+int disNodeMap[] = {0,500,500,0};		//For the discriminator
+bool continueNameAfterSpace = false;	//Allows letters following a ' '(Space) in generated names
+
+int randomNodes = 20;			//Number of random input nodes for generator
+int maxLetters = 16;			//Maximum letters in name
+int trialsPerPrint = 1000;		//Number of cycles before printing an output
 
 int main() {
-	int numOfLayers = sizeof(genNodeMap) / sizeof(int);
-	genNodeMap[0] = randomNodes;
-	genNodeMap[numOfLayers - 1] = 27 * maxLetters;
-	disNodeMap[0] = 27 * maxLetters;
 
+	//Sets values for genNodeMap
+	int genNumberOfLayers = sizeof(genNodeMap) / sizeof(int);
+	genNodeMap[0] = randomNodes;
+	genNodeMap[genNumberOfLayers - 1] = 27 * maxLetters;
+
+	//Sets values for disNodeMap
+	int disNumberOfLayers = sizeof(disNodeMap)/ sizeof(int);
+	disNodeMap[0] = 27 * maxLetters;
+	disNodeMap[disNumberOfLayers-1] = 2;
+
+	//Loads training names into realNames
 	std::vector<std::string> realNames;
 	std::ifstream nameFile("/home/rneptune/Desktop/pokemon.txt");
 	std::string name;
 	while (nameFile >> name)
 		realNames.push_back(name);
 
-	NeuralNetwork generator(numOfLayers,genNodeMap,.1);
-//	generator.loadWeightsFromFile("/home/rneptune/Desktop/Gweights.txt");
-	NeuralNetwork discriminator(numOfLayers,disNodeMap,.1);
-//	discriminator.loadWeightsFromFile("/home/rneptune/Desktop/Dweights.txt");
 
+	//Creates the generator and discriminator with .1 as the learning rate
+	NeuralNetwork generator(genNumberOfLayers,genNodeMap,.1);
+	NeuralNetwork discriminator(disNumberOfLayers,disNodeMap,.1);
+
+	//Loads saved weights from file
+//	generator.loadWeightsFromFile("Gweights.txt");
+//	discriminator.loadWeightsFromFile("Dweights.txt");
+
+	//Creates random double generator between -10,10
 	std::random_device rd;
 	std::mt19937 gen(rd());
-	std::uniform_real_distribution<double> dist(-1, 1);
+	std::uniform_real_distribution<double> dist(-10, 10);
 
-	int discriminatorRight = 0;
+	int discriminatorRight = 0;	//Defines and initializes number of times the discriminator is right
 
+	//Initializes various variables
 	double inputs[randomNodes];
 	double realInput[27 * maxLetters];
+	double *rawOutputs;
 	double genOutputs[27 * maxLetters];
 	double *disOutputs;
+	double *inputError;
 	double expectedDisOutput[2];
 
-	//Infinite Trials
-	for(int trial=0;trial>-1;trial++) {
 
-		expectedDisOutput[0] = 1;
-		expectedDisOutput[1] = 0;
+	for(int trial=1;trial>-1;trial++) {
 
+		/*
+		 * Generated Name
+		 */
+
+		//Sets the generator inputs to random values
 		for(int i=0;i<randomNodes;i++) {
 			inputs[i] = dist(gen);
 		}
-
-		double *rawOutputs = generator.forwardPropagate(inputs);
+		rawOutputs = generator.forwardPropagate(inputs);	//Runs generator
 		for(int i=0;i<27 * maxLetters;i++) {
-			genOutputs[i] = rawOutputs[i];
+			genOutputs[i] = rawOutputs[i];			//Copies rawOutputs array to genOutputs
 		}
-		minMaxOutput(genOutputs);
+		minMaxOutput(genOutputs);	//Sets all elements genOutputs to 1 or 0,
+		// 1 if the are the highest letter, 0 if not
 
-		disOutputs = discriminator.forwardPropagate(genOutputs);
-		if(disOutputs[0] > disOutputs[1])
+		//Sets expected output nodes for discriminator
+		expectedDisOutput[0] = 1;	//This node is high when the discriminator thinks the name is fake
+		expectedDisOutput[1] = 0;	//This node is high when the discriminator thinks the name is real
+		disOutputs = discriminator.forwardPropagate(genOutputs);	//Runs Discriminator
+		if(disOutputs[0] > disOutputs[1])	//if the discriminator thinks it's fake
 			discriminatorRight++;
-		discriminator.backPropagate(expectedDisOutput);
 
-		double *inputError = discriminator.getInputError();
+		//discriminator corrects itself based on the expected output
+		discriminator.backPropagate(expectedDisOutput);
+		//Gets the calculated error for the inputs of the discriminator
+		inputError = discriminator.getInputError();
+		//The inputs are multiplied by -1 and set to 0 or 1
 		for(int i=0;i<27 * maxLetters;i++) {
 			inputError[i] *= -1;
 		}
 		minMaxOutput(inputError);
 
+		//The generator corrects itself
 		generator.backPropagate(inputError);
 
+		/*
+		 * Real Name
+		 */
+
+		//Expected output form real name
 		expectedDisOutput[0] = 0;
 		expectedDisOutput[1] = 1;
 
-		std::string selectedName = realNames[rand()%realNames.size()];
-		setInputfromString(realInput, selectedName);
-		discriminator.doLearningTick(realInput, expectedDisOutput);
+		std::string selectedName = realNames[rand()%realNames.size()];	//Chooses a random name
 
+		setInputfromString(realInput, selectedName);		//Set realInput to 1s and 0s based on name
 
+		//Same as before just with a real name
+		disOutputs = discriminator.forwardPropagate(realInput);
+		if(disOutputs[0] > disOutputs[1])
+			discriminatorRight++;
+		discriminator.backPropagate(expectedDisOutput);
+
+		//Print info about training
 		if(trial % trialsPerPrint == 0) {
-			std::cout << trial << ": " << getWordFromOutput(rawOutputs) << " | " << "Discriminator Wins: " << 100 * ((double)discriminatorRight/(double)trialsPerPrint) << "%" << std::endl;
-			generator.saveWeightsToFile("/home/rneptune/Desktop/Gweights.txt");
-			discriminator.saveWeightsToFile("/home/rneptune/Desktop/Dweights.txt");
-			discriminatorRight = 0;
+			double disPercentage = 100 * ((double)discriminatorRight/(double)trialsPerPrint)/2;
+			std::cout << trial << ": " << getWordFromOutput(rawOutputs) << " | " << "Discriminator Wins: "
+				<< disPercentage << "%" << std::endl;
+			generator.saveWeightsToFile("Gweights.txt");
+//			discriminator.saveWeightsToFile("Dweights.txt");
+			discriminatorRight = 0;	//Resets discriminatorRight
 		}
 	}
 }
@@ -122,6 +168,7 @@ void minMaxOutput(double *input) {
 
 std::string getWordFromOutput(double *input) {
 	std::string name;
+	bool endEarly = false;
 	for(int i=0;i<maxLetters;i++) {
 		int bestIndex = -1;
 		double bestValue = -1000;
@@ -131,8 +178,10 @@ std::string getWordFromOutput(double *input) {
 				bestValue = input[i*27+selected];
 			}
 		}
-		if(bestIndex == 0) {
+		if(bestIndex == 0 || endEarly) {
 			name.append(" ");
+			if(!continueNameAfterSpace)
+				endEarly = true;
 		} else {
 			char c = (char)(bestIndex+64);
 			name.append(std::string(1,c));
