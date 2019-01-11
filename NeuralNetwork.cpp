@@ -6,7 +6,7 @@
 #include <fstream>
 #include "NeuralNetwork.h"
 
-NeuralNetwork::NeuralNetwork(int totalLayers, int *nodeMap, double learningRate)
+NeuralNetwork::NeuralNetwork(int totalLayers, int *nodeMap, double learningRate, bool bias)
 	: LEARNINGRATE(learningRate),
 	  TOTALLAYERS(totalLayers) {
 
@@ -21,6 +21,8 @@ NeuralNetwork::NeuralNetwork(int totalLayers, int *nodeMap, double learningRate)
 		nodes[i] = new double[nodeMap[i]];
 		error[i] = new double[nodeMap[i]];
 	}
+
+	biasOn = bias;
 
 	weights = new double**[TOTALLAYERS-1];
 	biasWeights = new double*[TOTALLAYERS];
@@ -89,24 +91,9 @@ void NeuralNetwork::addNodeInputs(int layer, int node) {
 	for(int i=0;i<nodeMap[layer-1];i++) {
 		nodes[layer][node] += nodes[layer-1][i] * weights[layer-1][i][node];
 	}
-	nodes[layer][node] += biasWeights[layer-1][node];
+	if(biasOn)
+		nodes[layer][node] += biasWeights[layer-1][node];
 	nodes[layer][node] = sigmoid(nodes[layer][node]);
-}
-
-void NeuralNetwork::addErrorInputs(int layer, int node) {
-	error[layer][node] = 0;
-	for(int i=0;i<nodeMap[layer+1];i++) {
-		error[layer][node] += error[layer+1][i] * weights[layer][node][i];
-		updateWeight(layer,node,i);
-	}
-
-	if(node+MAXTHREADS<nodeMap[layer])
-		addErrorInputs(layer,node+MAXTHREADS);
-}
-
-void NeuralNetwork::updateWeight(int layer, int inputNode,int outputNode) {
-//	weights[layer][inputNode][outputNode] += LEARNINGRATE * error[layer+1][outputNode] * dLReLU(nodes[layer+1][outputNode]) * nodes[layer][inputNode];
-	weights[layer][inputNode][outputNode] += LEARNINGRATE * error[layer+1][outputNode] * dsigmoid(nodes[layer+1][outputNode]) * nodes[layer][inputNode];
 }
 
 
@@ -135,12 +122,13 @@ double *NeuralNetwork::backPropagate(double *correct) {
 				weights[i][j][k] += error[i+1][k] * dsigmoid(nodes[i+1][k]) * nodes[i][j] * LEARNINGRATE;
 			}
 		}
-		for(int j=0;j<nodeMap[i+1];j++) {
-			biasWeights[i][j] += error[i+1][j] * dsigmoid(nodes[i+1][j]) * LEARNINGRATE;
+		if(biasOn) {
+			for (int j = 0; j < nodeMap[i + 1]; j++) {
+				biasWeights[i][j] += error[i + 1][j] * dsigmoid(nodes[i + 1][j]) * LEARNINGRATE;
+			}
 		}
 	}
 
-//	LEARNINGRATE = (4*LEARNINGRATE + fabs(error[TOTALLAYERS-1][0])*10)/5;
 
 	return error[TOTALLAYERS-1];
 }

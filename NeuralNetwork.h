@@ -11,7 +11,7 @@
 
 class NeuralNetwork {
 public:
-	NeuralNetwork(int totalLayers, int *nodeMap, double learningRate);
+	NeuralNetwork(int totalLayers, int *nodeMap, double learningRate, bool bias);
 	~NeuralNetwork();
 	double *doLearningTick(double *inputs, double *outputs);
 	double *forwardPropagate(double *inputs);
@@ -27,7 +27,7 @@ public:
 private:
 	double LEARNINGRATE;
 	int const TOTALLAYERS;
-	int static const MAXTHREADS = 1;
+	bool biasOn;
 
 	double ***weights;
 	double **biasWeights;
