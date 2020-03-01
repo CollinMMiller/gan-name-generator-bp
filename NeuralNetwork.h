@@ -24,6 +24,7 @@ public:
 	double ***getWeights() { return weights; }
 	double **getBiases() { return  biasWeights; }
 	int *nodeMap;
+	void randomize() { randomizeWeights(-1, 1); };
 private:
 	double LEARNINGRATE;
 	int const TOTALLAYERS;

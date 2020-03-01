@@ -17,12 +17,15 @@ std::string getWordFromOutput(double *);
  * example: ...NodeMap[] = {0, 100, 600, 350, 0};
  */
 int genNodeMap[] = {0,500,500,0};	//For the generator
-int disNodeMap[] = {0,200,200,0};	//For the discriminator
+int disNodeMap[] = {0,500,500,0};	//For the discriminator
 bool continueNameAfterSpace = false;	//Allows letters following a ' '(Space) in generated names
 
-int randomNodes = 20;			//Number of random input nodes for generator
+int randomNodes = 50;			//Number of random input nodes for generator
 int maxLetters = 16;			//Maximum letters in name
 int trialsPerPrint = 1000;		//Number of cycles before printing an output
+
+int discrimCount = 0;
+int maxCountBeforeReset = 3;
 
 int main(int argc, char **argv) {
 
@@ -39,7 +42,7 @@ int main(int argc, char **argv) {
 	//Sets values for disNodeMap
 	int disNumberOfLayers = sizeof(disNodeMap)/ sizeof(int);
 	disNodeMap[0] = 27 * maxLetters;
-	disNodeMap[disNumberOfLayers-1] = 2;
+	disNodeMap[disNumberOfLayers-1] = 1;
 
 	//Loads training names into realNames
 	std::vector<std::string> realNames;
@@ -50,7 +53,7 @@ int main(int argc, char **argv) {
 
 
 	//Creates the generator and discriminator with .1 as the learning rate
-	NeuralNetwork generator(genNumberOfLayers,genNodeMap,.1, false);
+	NeuralNetwork generator(genNumberOfLayers,genNodeMap, .1, true);
 	NeuralNetwork discriminator(disNumberOfLayers,disNodeMap,.1, true);
 
 	//Loads saved weights from file
@@ -90,10 +93,9 @@ int main(int argc, char **argv) {
 		// 1 if the are the highest letter, 0 if not
 
 		//Sets expected output nodes for discriminator
-		expectedDisOutput[0] = 1;	//This node is high when the discriminator thinks the name is fake
-		expectedDisOutput[1] = 0;	//This node is high when the discriminator thinks the name is real
+		expectedDisOutput[0] = 0;	//1 if it thinks the name is real, 0 if it thinks it is fake
 		disOutputs = discriminator.forwardPropagate(genOutputs);	//Runs Discriminator
-		if(disOutputs[0] > disOutputs[1])	//if the discriminator thinks it's fake
+		if(disOutputs[0] < .5)	//if the discriminator thinks it's fake
 			discriminatorRight++;
 
 		//discriminator corrects itself based on the expected output
@@ -114,26 +116,34 @@ int main(int argc, char **argv) {
 		 */
 
 		//Expected output form real name
-		expectedDisOutput[0] = 0;
-		expectedDisOutput[1] = 1;
+		expectedDisOutput[0] = 1;
 
-		std::string selectedName = realNames[rand()%realNames.size()];	//Chooses a random name
+		std::string selectedName = realNames[rand() % realNames.size()];	//Chooses a random name
 
 		setInputfromString(realInput, selectedName);		//Set realInput to 1s and 0s based on name
 
 		//Same as before just with a real name
 		disOutputs = discriminator.forwardPropagate(realInput);
-		if(disOutputs[0] > disOutputs[1])
-			discriminatorRight++;
 		discriminator.backPropagate(expectedDisOutput);
 
 		//Print info about training
 		if(trial % trialsPerPrint == 0) {
-			double disPercentage = 100 * ((double)discriminatorRight/(double)trialsPerPrint)/2;
+			double disPercentage = 100 * ((double)discriminatorRight/(double)trialsPerPrint);
 			std::cout << trial << ": " << getWordFromOutput(rawOutputs) << " | " << "Discriminator Wins: "
 				<< disPercentage << "%" << std::endl;
-			generator.saveWeightsToFile("Gweights.txt");
+//			generator.saveWeightsToFile("Gweights.txt");
 //			discriminator.saveWeightsToFile("Dweights.txt");
+
+			if (discriminatorRight == trialsPerPrint) {
+				discrimCount++;
+				if (discrimCount >= maxCountBeforeReset) {
+					std::cout << "Reset Discriminator" << std::endl;
+					discriminator.randomize();
+				}
+			} else {
+				discrimCount = 0;
+			}
+
 			discriminatorRight = 0;	//Resets discriminatorRight
 		}
 	}
